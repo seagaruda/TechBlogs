@@ -1,0 +1,123 @@
+name: Sync posts to blog-index
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.md"
+      - "!README.md"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout TechBlogs
+        uses: actions/checkout@v4
+        with:
+          path: techblogs
+
+      - name: Generate posts.json
+        run: |
+          python3 - <<'PYEOF'
+          import os, json, re
+          from datetime import datetime
+
+          posts = []
+
+          for fname in sorted(os.listdir("techblogs")):
+              if not fname.endswith(".md") or fname.upper() == "README.MD":
+                  continue
+
+              with open(f"techblogs/{fname}", encoding="utf-8") as f:
+                  content = f.read()
+
+              # Parse YAML frontmatter
+              fm = {}
+              body = content
+              fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
+              if fm_match:
+                  raw_fm = fm_match.group(1)
+                  body = content[fm_match.end():]
+                  for line in raw_fm.splitlines():
+                      kv = re.match(r'^(\w+)\s*:\s*"?([^"\n]+)"?\s*$', line)
+                      if kv:
+                          fm[kv.group(1)] = kv.group(2).strip()
+                      # Parse tags array: tags: ["A", "B"]
+                      tags_match = re.match(r'^tags\s*:\s*\[(.+)\]', line)
+                      if tags_match:
+                          raw_tags = tags_match.group(1)
+                          fm["tags"] = [t.strip().strip('"').strip("'") for t in raw_tags.split(",")]
+
+              # Fallback: extract title from first H1
+              if "title" not in fm:
+                  h1 = re.search(r'^#\s+(.+)$', body, re.MULTILINE)
+                  fm["title"] = h1.group(1).strip() if h1 else fname.replace(".md", "")
+
+              # Fallback: extract summary from first non-heading paragraph
+              if "summary" not in fm:
+                  paras = [p.strip() for p in re.split(r'\n{2,}', body)
+                           if p.strip() and not p.strip().startswith('#')
+                           and not p.strip().startswith('```')]
+                  fm["summary"] = paras[0][:200] if paras else ""
+
+              # Fallback: slug from filename
+              if "slug" not in fm:
+                  fm["slug"] = fname.replace(".md", "").lower().replace("_", "-")
+
+              # Fallback: date from git or today
+              if "date" not in fm:
+                  fm["date"] = datetime.utcnow().strftime("%Y-%m-%d")
+
+              # GitHub raw URL for the article
+              repo = "seagaruda/TechBlogs"
+              branch = "main"
+              fm["url"] = f"https://github.com/{repo}/blob/{branch}/{fname}"
+              fm["raw_url"] = f"https://raw.githubusercontent.com/{repo}/{branch}/{fname}"
+              fm["filename"] = fname
+
+              posts.append(fm)
+
+          # Sort by date descending
+          posts.sort(key=lambda p: p.get("date", ""), reverse=True)
+
+          output = {
+              "generated_at": datetime.utcnow().isoformat() + "Z",
+              "posts": posts
+          }
+
+          with open("posts.json", "w", encoding="utf-8") as f:
+              json.dump(output, f, ensure_ascii=False, indent=2)
+
+          print(f"Generated posts.json with {len(posts)} posts")
+          for p in posts:
+              print(f"  - [{p['date']}] {p['title']}")
+          PYEOF
+
+      - name: Checkout blog-index
+        uses: actions/checkout@v4
+        with:
+          repository: seagaruda/blog-index
+          ref: herbert
+          token: ${{ secrets.BLOG_INDEX_TOKEN }}
+          path: blog-index
+
+      - name: Copy posts.json to blog-index
+        run: |
+          cp posts.json blog-index/public/posts.json
+          echo "Copied posts.json:"
+          cat posts.json
+
+      - name: Commit and push to blog-index
+        run: |
+          cd blog-index
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/posts.json
+          if git diff --staged --quiet; then
+            echo "No changes to posts.json, skipping commit"
+          else
+            git commit -m "chore: sync posts.json from TechBlogs [skip ci]"
+            git push origin herbert
+            echo "Pushed posts.json to blog-index/herbert"
+          fi

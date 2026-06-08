@@ -1,3 +1,12 @@
+---
+title: "From On-Premise to Cloud: Why Distributed Architecture Is the Right Move"
+date: "2025-06-01"
+summary: "Traditional primary/standby server deployments create hard ceilings on scalability. Distributed architecture on public cloud removes those ceilings — and eliminates forced downtime for capacity changes. Here's why and how."
+tags: ["Cloud", "Architecture", "DevOps", "AMI"]
+slug: "cloud-migration-distributed-architecture"
+lang: "en"
+---
+
 # From On-Premise to Cloud: Why Distributed Architecture Is the Right Move
 
 ## The Old Way: Physical Servers and Painful Upgrades
@@ -57,11 +66,3 @@ The load balancer should continuously probe node health. Unhealthy nodes are rem
 The shift from physical servers to cloud is not just an infrastructure change — it is an architectural one. The traditional primary/standby model was designed around hardware constraints that no longer apply in the cloud. Distributed multi-node architecture with load balancing is the correct model for cloud deployment: it eliminates forced downtime for capacity changes and lets the system grow smoothly as demand increases.
 
 For a platform like Gurux.DLMS.AMI, where device counts and data volumes grow continuously, this architectural foundation is not optional — it is the prerequisite for sustainable operation at scale.
-
----
-
-*References:*
-- *Alibaba Cloud: Enterprise Cloud Migration Best Practices*
-- *Huawei Cloud: Load Balancing and Horizontal Scaling Architecture*
-- *InfoQ: From Monolith to Distributed — Cloud Transformation Paths*
-- *IDC: Cloud Adoption Status and Trends 2024*
