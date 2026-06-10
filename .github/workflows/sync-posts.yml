@@ -98,7 +98,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: seagaruda/blog-index
-          ref: herbert
+          ref: main
           token: ${{ secrets.BLOG_INDEX_TOKEN }}
           path: blog-index
 
@@ -118,6 +118,6 @@ jobs:
             echo "No changes to posts.json, skipping commit"
           else
             git commit -m "chore: sync posts.json from TechBlogs"
-            git push origin herbert
+            git push origin main
             echo "Pushed posts.json to blog-index/herbert"
           fi
