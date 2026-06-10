@@ -117,7 +117,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to posts.json, skipping commit"
           else
-            git commit -m "chore: sync posts.json from TechBlogs [skip ci]"
+            git commit -m "chore: sync posts.json from TechBlogs"
             git push origin herbert
             echo "Pushed posts.json to blog-index/herbert"
           fi
