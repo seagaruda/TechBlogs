@@ -1,68 +1,77 @@
-# 传统单体系统改造为分布式架构：最佳实践与工作量评估
+---
+title: "From Monolith to Distributed: Best Practices and Effort Estimation"
+date: "2026-06-10"
+summary: "Traditional industry software — factory MES, hospital HIS, power SCADA, AMI metering platforms — was built for a different era. Here's a grounded roadmap for migrating to distributed architecture, with realistic effort estimates for each stage."
+tags: ["Architecture", "Distributed Systems", "Migration", "AMI", "DevOps"]
+slug: "monolith-to-distributed-architecture"
+lang: "en"
+---
 
-> 作者：seagaruda | 发布时间：2026-06-10
+# From Monolith to Distributed: Best Practices and Effort Estimation
+
+> Author: seagaruda | Published: 2026-06-10
 
 ---
 
-## 前言
+## Background
 
-传统行业的软件系统——工厂 MES、医院 HIS、电力 SCADA、AMI 智能电表平台——大多诞生于单体架构时代。一个部署包走天下，一个数据库支撑全部业务，那时候这是最务实的选择。
+Traditional industry software — factory MES, hospital HIS, power SCADA, AMI metering platforms — was born in the monolith era. One deployment package, one database, one server. At the time, that was the most practical choice.
 
-随着系统运行年限增长、接入设备增多、用户规模扩大，单体架构的问题开始集中暴露：
+As systems age, connected devices multiply, and user loads grow, the cracks start showing:
 
-- **扩展瓶颈**：流量高峰时只能整台机器升配，成本高、弹性差
-- **单点风险**：一台服务器宕机，整个系统停服
-- **发布停机**：每次升级版本必须停服维护，业务方叫苦不迭
-- **资源浪费**：空闲时段服务器空转，高峰时却又扛不住
+- **Scaling ceiling**: traffic spikes require vertical scaling of the entire machine — expensive and inflexible
+- **Single point of failure**: one server goes down, the whole system stops
+- **Downtime deploys**: every release requires a maintenance window; operations teams hate it
+- **Resource waste**: servers idle at off-peak hours, yet can't handle peak loads
 
-很多团队此时的第一反应是"要不要上微服务"。本文的观点是：**对传统行业来说，分布式部署 + 负载均衡才是正确的第一步**，能解决绝大多数实际问题，且代价可控。微服务是更远的事，等团队规模和业务复杂度真正到了那个量级再说。
+The knee-jerk reaction is often "should we go microservices?" This article argues: **distributed deployment with load balancing is the right first step for traditional industry systems**. It solves the majority of real problems at a manageable cost. Microservices are a later conversation — when team size and business complexity actually justify it.
 
 ---
 
-## 一、改造目标：单体变成什么样子
+## 1. Target State: What the System Looks Like After Migration
 
-改造完成后，系统应该达到以下状态：
+After migration, the system should reach this topology:
 
 ```
-                    ┌─────────────────────────────────┐
-用户/设备请求 ──▶  │     Nginx 负载均衡 / API Gateway   │
-                    └────────┬────────────┬────────────┘
-                             │            │
-                    ┌────────▼──┐  ┌──────▼────┐
-                    │  应用实例1  │  │  应用实例2  │  ← 可按需增减
-                    └────────┬──┘  └──────┬────┘
-                             │            │
-               ┌─────────────▼────────────▼─────────────┐
-               │  共享数据库（主从读写分离）                │
-               │  主库（写） + 只读副本（查询/报表）        │
-               └────────────────────────────────────────┘
-               ┌─────────────────────────────────────────┐
-               │  Redis（共享 Session / 缓存 / 分布式锁）  │
-               └─────────────────────────────────────────┘
+                    ┌──────────────────────────────────────┐
+Users / Devices ──▶ │   Nginx Load Balancer / API Gateway   │
+                    └───────────┬──────────────┬────────────┘
+                                │              │
+                       ┌────────▼───┐  ┌───────▼────┐
+                       │  App Node 1 │  │  App Node 2 │  ← scale horizontally
+                       └────────┬───┘  └───────┬────┘
+                                │              │
+              ┌─────────────────▼──────────────▼──────────────┐
+              │   Shared Database (primary/replica read split)  │
+              │   Primary (writes) + Read Replica (queries)     │
+              └────────────────────────────────────────────────┘
+              ┌────────────────────────────────────────────────┐
+              │   Redis (shared session / cache / dist. locks)  │
+              └────────────────────────────────────────────────┘
 ```
 
-核心收益：
-- **高可用**：一个实例宕机，流量自动切到其他实例，用户无感知
-- **水平扩展**：加一台机器、启一个实例，容量线性增长
-- **滚动发布**：逐实例替换，升级不再停服
-- **数据库减压**：读写分离，报表查询不再拖慢主库
+Core gains:
+- **High availability**: one node crashes, traffic routes to others — users notice nothing
+- **Horizontal scaling**: add a machine, start an instance, capacity grows linearly
+- **Rolling deploys**: replace nodes one at a time, no maintenance windows
+- **Database relief**: read/write split means reporting queries no longer block the primary
 
 ---
 
-## 二、改造的核心工作：应用无状态化
+## 2. The Core Work: Making the Application Stateless
 
-**多实例部署的前提是应用无状态**——任意一个实例都能处理任意一个请求，请求不依赖特定机器上的数据。
+**Multi-instance deployment requires a stateless application** — any instance must be able to handle any request without depending on data local to a specific machine.
 
-单体系统通常有四类"有状态"问题需要逐一解决。
+Monolith systems typically carry four categories of state that need to be addressed.
 
-### 2.1 用户会话（Session）改造
+### 2.1 Session Migration
 
-**问题**：原来 Session 存在 JVM 内存里，用户登录后的请求必须打到同一台机器，加实例后登录状态丢失。
+**Problem**: Sessions live in JVM heap memory. After login, requests must hit the same machine. Add a second instance and sessions break.
 
-**改造方式**：将 Session 迁移到 Redis，所有实例共享。
+**Fix**: Move sessions to Redis, shared across all instances.
 
 ```java
-// Spring Boot 只需加一个依赖 + 配置，代码几乎不用改
+// Spring Boot: one dependency + config, almost no code change
 // pom.xml
 <dependency>
     <groupId>org.springframework.session</groupId>
@@ -78,47 +87,46 @@ spring:
     port: 6379
 ```
 
-**注意**：Session 里存放的对象必须实现 `Serializable`，否则序列化会报错。排查时重点检查 Session 里塞的用户信息对象。
+**Watch out**: objects stored in session must implement `Serializable`. Check your user info objects — they're the most common offender.
 
-**工作量**：2~5 天（含测试）
+**Effort**: 2–5 days (including testing)
 
 ---
 
-### 2.2 本地文件存储改造
+### 2.2 Local File Storage Migration
 
-**问题**：上传的文件、生成的报表、导出的 Excel 都存在本地磁盘某个目录下。多实例后 A 实例上传的文件，B 实例找不到。
+**Problem**: uploaded files, generated reports, exported spreadsheets all live on the local disk. Instance A uploads a file; Instance B can't find it.
 
-**改造方式**：所有文件读写改走对象存储（私有部署用 MinIO，云上用 OSS/S3）。
+**Fix**: route all file I/O through object storage (MinIO for self-hosted, OSS/S3 on cloud).
 
 ```java
-// 改造前：直接操作本地路径
+// Before: direct local path
 File file = new File("/data/uploads/" + filename);
 FileUtils.copyInputStreamToFile(inputStream, file);
 
-// 改造后：统一通过存储服务
-storageService.upload(inputStream, filename);  // 内部调 MinIO/OSS
+// After: unified storage service
+storageService.upload(inputStream, filename);  // delegates to MinIO/OSS
 String url = storageService.getUrl(filename);
 ```
 
-排查要点：全局搜索代码里的 `new File(`、`FileInputStream`、`FileOutputStream`、`MultipartFile.transferTo`，逐一检查是否有本地路径硬编码。
+Audit tip: search the codebase for `new File(`, `FileInputStream`, `FileOutputStream`, `MultipartFile.transferTo` — every hit is a candidate for migration.
 
-**工作量**：3~7 天（依赖文件操作的散落程度）
+**Effort**: 3–7 days (depends on how scattered file operations are)
 
 ---
 
-### 2.3 定时任务改造
+### 2.3 Scheduled Job Deduplication
 
-**问题**：原来每个实例都会执行定时任务。3 个实例同时跑账期对账、同时发短信通知，结果重复处理、重复发送。
+**Problem**: every instance runs every scheduled job. Three instances running the nightly reconciliation job simultaneously means triple processing and triple notifications.
 
-**改造方式**（按复杂度选一种）：
+**Fix** (pick one based on complexity):
 
-**方案 A**：分布式锁（适合任务逻辑简单、数量少的场景）
+**Option A — Distributed lock** (simple tasks, low job count):
 ```java
-// 用 Redis 抢锁，抢到才执行
 @Scheduled(cron = "0 0 1 * * ?")
 public void dailySettlement() {
     boolean locked = redisLock.tryLock("daily-settlement", 60);
-    if (!locked) return;  // 其他实例已在执行
+    if (!locked) return;  // another instance already running
     try {
         doSettlement();
     } finally {
@@ -127,74 +135,46 @@ public void dailySettlement() {
 }
 ```
 
-**方案 B**：独立调度服务（推荐，任务多时管理方便）
+**Option B — Dedicated scheduler** (many jobs, complex dependencies): extract scheduled jobs to a single dedicated instance that doesn't participate in load balancing, or adopt a job scheduling framework (XXL-JOB, Quartz Cluster).
 
-引入 XXL-Job 或 PowerJob，把定时任务统一注册到调度中心，由调度中心分配执行，天然避免重复。
-
-**工作量**：3~7 天（含调度平台搭建）
+**Effort**: 3–10 days (depends on job count and business criticality)
 
 ---
 
-### 2.4 进程内缓存改造
+### 2.4 In-Process Cache Migration
 
-**问题**：用 `HashMap` 或 Guava Cache 做的进程内缓存，每个实例各自维护一份，数据更新后各实例不一致。比如修改了设备参数，只有处理这个请求的实例缓存更新了，其他实例还是旧数据。
+**Problem**: `HashMap` or Guava `LoadingCache` caches live in each instance's memory. After a cache update on Instance A, Instance B still serves stale data.
 
-**改造方式**：业务数据缓存迁移到 Redis，进程内只保留不变的配置型数据（枚举、静态规则）。
+**Fix**: replace local caches used for cross-request sharing with Redis. Keep local caches only for data that is truly read-only and process-scoped (e.g., static config loaded at startup).
 
 ```java
-// 改造前：本地 Map
-private Map<String, DeviceConfig> cache = new HashMap<>();
+// Before: local Guava cache
+LoadingCache<String, Device> deviceCache = CacheBuilder.newBuilder()
+    .expireAfterWrite(5, TimeUnit.MINUTES)
+    .build(key -> deviceRepo.findById(key));
 
-// 改造后：Redis
-@Cacheable(value = "deviceConfig", key = "#deviceId")
-public DeviceConfig getConfig(String deviceId) {
-    return deviceConfigRepo.findById(deviceId);
+// After: Redis-backed, consistent across instances
+@Cacheable(value = "device", key = "#deviceId")
+public Device getDevice(String deviceId) {
+    return deviceRepo.findById(deviceId);
 }
 ```
 
-**工作量**：3~7 天（依赖缓存使用的范围）
+**Effort**: 2–5 days
 
 ---
 
-## 三、基础设施改造
+## 3. Infrastructure: Load Balancer + Database Read/Write Split
 
-应用层无状态化之后，还需要几项基础设施工作。
+### 3.1 Nginx Load Balancing
 
-### 3.1 数据库读写分离
-
-数据库通常是单体系统的性能瓶颈。改造目标是：**写操作走主库，查询和报表走只读副本**。
-
-配置方式：通过数据库中间件（如 ShardingSphere-JDBC 或 MyBatis-Plus 的路由插件）按注解或方法名自动路由，业务代码不感知。
-
-```yaml
-# ShardingSphere 读写分离配置示例
-spring:
-  shardingsphere:
-    datasource:
-      master: { url: jdbc:postgresql://master:5432/db }
-      slave0: { url: jdbc:postgresql://slave0:5432/db }
-    rules:
-      readwrite-splitting:
-        data-sources:
-          rw-ds:
-            write-data-source-name: master
-            read-data-source-names: slave0
-```
-
-**注意**：写后立刻读的场景（如下单后查订单）要强制走主库，否则主从延迟导致读不到刚写的数据。用 `@Master` 注解或 Hint 强制路由。
-
-**工作量**：3~5 天（含主从搭建、延迟测试）
-
----
-
-### 3.2 Nginx 负载均衡配置
+A minimal working config:
 
 ```nginx
 upstream app_cluster {
-    least_conn;                          # 最少连接数策略
-    server 192.168.1.10:8080;
-    server 192.168.1.11:8080;
-    server 192.168.1.12:8080;
+    least_conn;  # route to the instance with fewest active connections
+    server 10.0.0.1:8080;
+    server 10.0.0.2:8080;
     keepalive 32;
 }
 
@@ -202,119 +182,86 @@ server {
     listen 80;
     location / {
         proxy_pass http://app_cluster;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_connect_timeout 5s;
         proxy_read_timeout 60s;
-        proxy_next_upstream error timeout http_502 http_503;
     }
 }
 ```
 
-有 WebSocket 长连接需求的场景，改用 `ip_hash` 策略，同一客户端 IP 固定打到同一实例。
+**Health check**: configure Nginx `health_check` or use a cloud load balancer (ALB/CLB) with active health probes. Remove unhealthy instances from the pool automatically.
 
-**工作量**：1~2 天
-
----
-
-### 3.3 配置中心
-
-多实例部署后，每台机器上各自一份配置文件是灾难——改一个数据库地址要登 N 台机器。引入配置中心统一管理，所有实例动态监听变更。
-
-推荐选型：Nacos（功能完整、国内生态好）或 Spring Cloud Config（已有 Spring 技术栈的团队）。
-
-**工作量**：3~5 天（含接入和迁移现有配置）
+**Effort**: 1–2 days
 
 ---
 
-### 3.4 滚动发布流程
+### 3.2 Database Read/Write Split
 
-改造完成后，发布流程应该变成：
+```java
+// Route writes to primary, reads to replica via AbstractRoutingDataSource
+public class ReadWriteRoutingDataSource extends AbstractRoutingDataSource {
+    @Override
+    protected Object determineCurrentLookupKey() {
+        return TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+            ? "replica" : "primary";
+    }
+}
 
-1. 从负载均衡摘除实例 1（Nginx upstream 标记为 down）
-2. 升级实例 1，等待健康检查通过
-3. 把实例 1 重新加回负载均衡
-4. 重复以上步骤处理实例 2、3……
+// Mark read-only transactions explicitly
+@Transactional(readOnly = true)
+public List<MeterReading> queryReadings(String meterId, LocalDate from, LocalDate to) {
+    return meterReadingRepo.findByMeterIdAndDateBetween(meterId, from, to);
+}
+```
 
-用 CI/CD 工具（Jenkins / GitLab CI）配合脚本自动化，整个发布过程不停服，用户不感知。
-
-**工作量**：3~5 天（含脚本编写和演练）
-
----
-
-## 四、完整工作量清单
-
-以一个典型的传统行业系统为例：**Java 单体，10~30 万行代码，1 台应用服务器，1 个 PostgreSQL 实例，2~3 人开发团队**。
-
-### 4.1 详细工作项
-
-| 类别 | 工作内容 | 预估工时 | 风险点 |
-|------|----------|---------|--------|
-| **应用改造** | Session 迁移到 Redis | 2~5 天 | Session 对象未实现 Serializable |
-| | 本地文件改走对象存储 | 3~7 天 | 历史文件需迁移，本地路径散落 |
-| | 定时任务分布式改造 | 3~7 天 | 任务间依赖关系排查 |
-| | 进程内缓存迁移到 Redis | 3~7 天 | 缓存 key 冲突、序列化问题 |
-| | 配置外置（去掉硬编码配置）| 2~3 天 | 配置散落在代码各处 |
-| **数据库** | 主从搭建 + 读写分离配置 | 3~5 天 | 写后读场景需特殊处理 |
-| | 连接池参数调优 | 1~2 天 | 多实例连接数倍增 |
-| **基础设施** | Redis 集群搭建 | 1~2 天 | 选型：Sentinel 还是 Cluster |
-| | 对象存储搭建（MinIO）| 1~2 天 | 磁盘容量规划 |
-| | 配置中心搭建（Nacos）| 2~3 天 | 配置分组和权限规划 |
-| | Nginx 负载均衡配置 | 1~2 天 | 长连接场景策略选择 |
-| **DevOps** | CI/CD 流水线搭建 | 3~5 天 | 滚动发布脚本 |
-| | 监控告警配置（Prometheus + Grafana）| 3~5 天 | 告警阈值需要运行一段时间调整 |
-| | 健康检查接口 | 1~2 天 | - |
-| **测试验证** | 多实例一致性测试 | 3~5 天 | Session、缓存、文件的跨实例验证 |
-| | 负载均衡压测 | 2~3 天 | 找到实际瓶颈 |
-| | 故障演练（摘除一个实例）| 1~2 天 | 确认高可用有效 |
-| | 滚动发布演练 | 1~2 天 | 确认不停服 |
-
-### 4.2 汇总工期
-
-| 阶段 | 内容 | 工期 | 人力 |
-|------|------|------|------|
-| 准备期 | 现状摸底、无状态化排查清单 | 1~2 周 | 1~2 人 |
-| 基础设施搭建 | Redis、MinIO、Nacos、Nginx | 1~2 周 | 1~2 人 |
-| 应用改造 | Session、文件、缓存、定时任务 | 4~8 周 | 2~3 人 |
-| 数据库改造 | 读写分离、连接池优化 | 1~2 周 | 1~2 人 |
-| DevOps | CI/CD、监控、健康检查 | 2~3 周 | 1~2 人 |
-| 测试验证 | 功能、压测、故障演练 | 2~3 周 | 全员 |
-| **合计** | | **3~5 个月** | **2~3 人** |
-
-> 工期差异主要来自代码库的历史质量：文件路径硬编码多、缓存使用分散的系统，应用改造阶段会更长。改造前做一次完整的无状态化扫描，能帮助更准确地估算工期。
-
-### 4.3 估算误区
-
-**误区 1：低估"找问题"的时间**
-应用改造里 30%~40% 的时间不是写代码，而是找到所有需要改的地方。历史代码没有文档，全靠搜索和 Code Review。
-
-**误区 2：忽略数据迁移**
-历史上传的文件、历史的配置项都需要迁移到新的存储，这部分往往在评估时被遗忘，实际执行时才发现要花不少时间。
-
-**误区 3：测试时间不够**
-多实例系统的 Bug 通常只在特定条件下出现（比如两个请求同时命中同一个缓存），功能测试发现不了，需要专门的并发测试和故障演练。建议测试验证阶段时间不低于整体工期的 25%。
+**Effort**: 3–5 days
 
 ---
 
-## 五、改造成功的验收标准
+## 4. Effort Estimation Summary
 
-| 验收项 | 目标 |
-|--------|------|
-| 单实例宕机 | 10 秒内流量切到其他实例，用户无感知 |
-| 水平扩容耗时 | 新实例启动并加入集群 < 5 分钟 |
-| 发布停机时间 | 0（滚动发布，不停服） |
-| 数据库主从延迟 | < 1 秒（正常负载下） |
-| Session 跨实例 | 任意实例登录，任意实例可访问 |
-| 定时任务重复执行 | 0 次（分布式锁验证） |
-
----
-
-## 六、微服务：未来的方向
-
-完成分布式改造后，系统已具备水平扩展和高可用能力，能应对大多数传统行业的业务增长。
-
-微服务是下一个演进方向，但前提条件更高：团队规模超过 20 人、模块之间发布频率差异显著、需要技术栈异构……这些条件大多数传统行业团队目前还没到。届时的改造路径是绞杀者模式（Strangler Fig Pattern）——在现有分布式系统上逐步剥离模块，而不是推倒重来。
-
-当下最务实的做法是：**把分布式改造做扎实，把监控和自动化做好，等微服务的需求真正出现时，再迈那一步**。
+| Work Item | Effort | Risk |
+|-----------|--------|------|
+| Session → Redis | 2–5 days | Low — Spring Boot makes this nearly config-only |
+| File storage → Object Storage | 3–7 days | Medium — scattered file ops need a full audit |
+| Scheduled job deduplication | 3–10 days | Medium–High — business logic sensitivity varies |
+| Local cache → Redis | 2–5 days | Low |
+| Nginx load balancer setup | 1–2 days | Low |
+| DB read/write split | 3–5 days | Medium |
+| Integration testing | 5–10 days | — |
+| Staged rollout + rollback plan | 3–5 days | — |
+| **Total** | **22–49 days** | |
 
 ---
 
-*如有问题或建议，欢迎提 Issue 或 Discussion。*
+## 5. Migration Path: Three Phases
+
+### Phase 1 — Stateless First (Weeks 1–3)
+Fix all four stateful problems: session, files, scheduled jobs, local cache. Deploy to a test environment and validate thoroughly before touching production.
+
+### Phase 2 — Multi-Instance + Load Balancer (Weeks 4–5)
+Start with two instances behind Nginx. Validate session sharing, file access, and job deduplication under real traffic. Keep rollback ready.
+
+### Phase 3 — Database Read/Write Split (Week 6+)
+Set up primary/replica replication. Enable read routing gradually — start with low-risk query-only modules. Monitor replica lag.
+
+---
+
+## 6. Common Pitfalls
+
+**Don't skip the stateless audit.** The most common failure is deploying multiple instances before fixing session or file storage, then debugging mysterious "random" login failures in production.
+
+**Test scheduled jobs with two instances running simultaneously** before go-live. A reconciliation job firing twice is a serious data integrity issue.
+
+**Replica lag is real.** After a write, a subsequent read routed to the replica may return stale data. For operations that read immediately after writing (e.g., "save and display"), force the read to primary.
+
+**Microservices are not the next step.** After completing this migration, the system handles the vast majority of scaling scenarios most traditional industry platforms will ever face. Microservices introduce distributed transactions, service mesh, independent CI/CD per service, and significant operational overhead. Revisit that decision when the team has grown and the current architecture is a proven bottleneck — not before.
+
+---
+
+## Conclusion
+
+The migration from monolith to distributed deployment is a concrete, achievable project for most traditional industry software teams — typically 4–8 weeks of focused engineering. The payoff is high availability, horizontal scaling, and zero-downtime deploys.
+
+The architecture described here — stateless app nodes, shared Redis, load balancer, primary/replica database — is battle-tested across factory MES, hospital systems, and utility metering platforms. It is not a stepping stone to something else. It is a stable, long-term architecture that most teams can run comfortably for years.
