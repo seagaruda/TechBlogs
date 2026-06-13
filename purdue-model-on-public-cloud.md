@@ -1,133 +1,129 @@
 ---
-title: "The Purdue Model on Public Cloud — Not a Compromise, but an Evolution"
-date: "2026-06-14"
-summary: "Security teams from traditional industries often balk at moving to public cloud. But the Purdue Reference Model was never about physical separation — it's about controlling data flows between functional layers. Public cloud provides richer, more observable tools to implement the same layered security logic."
+title: "Purdue Model on Public Cloud — Not a Compromise, But an Evolution"
+date: "2026-06-13"
+summary: "Traditional industries are moving OT workloads to public cloud while still required to follow the Purdue Network Security Model. This article argues that the Purdue Model is a logical security framework, not a physical infrastructure prescription — and public cloud can implement it more rigorously than on-premises data centers ever could."
 slug: "purdue-model-on-public-cloud"
-tags: ["ICS Security", "OT/IT Convergence", "Cloud Architecture", "IEC 62443", "Purdue Model", "AMI"]
+tags: ["OT Security", "Cloud", "ICS", "Purdue Model", "AMI", "Industrial IoT"]
 lang: "en"
 ---
 
-# The Purdue Model on Public Cloud — Not a Compromise, but an Evolution
+# Purdue Model on Public Cloud — Not a Compromise, But an Evolution
 
-Security teams from traditional industries tend to grimace the moment someone mentions "moving to public cloud."
+For decades, the Purdue Enterprise Reference Architecture (PERA) — commonly known as the Purdue Model — has been the de facto blueprint for securing industrial control systems (ICS) and operational technology (OT) networks. Its layered hierarchy, from physical processes at Level 0 up to enterprise IT at Level 4/5, defined how utilities, manufacturers, and critical infrastructure operators thought about network segmentation.
 
-The reason is straightforward: we've spent twenty years using the Purdue Reference Model to segment OT networks by layer, with tightly controlled data flows between each level. Now you want me to send SCADA data to AWS, Azure, or Huawei Cloud? Isn't that tearing down my security perimeter?
+Then public cloud arrived. And a generation of security engineers said: "The Purdue Model and the cloud are incompatible. You can't put OT in someone else's data center."
 
-The concern is valid. The conclusion doesn't have to be.
-
-Public cloud is not the antithesis of the Purdue Model — it offers a more flexible, more observable way to implement the same layered logic. The key is how you use it.
+That instinct is understandable. It is also wrong — or at least, it is answering the wrong question.
 
 ---
 
-## 1. What the Purdue Model Is Actually Protecting
+## What the Purdue Model Actually Says
 
-The Purdue Enterprise Reference Architecture (PERA) was introduced by Theodore Williams in the 1990s and later adopted by the ISA-99 / IEC 62443 standards framework, becoming the de facto baseline for industrial control system security.
+The Purdue Model is a *logical* security framework, not a *physical* infrastructure prescription.
 
-Its core principle is not "physical isolation" — it's **data flow control between functional layers**:
+Its core principle is **zone isolation with controlled data flows**: each level communicates only with adjacent levels, unidirectional data flows are enforced where possible, and no direct path exists between the enterprise IT network and the plant floor. The model defines *what talks to what* and *how*, not *where the servers physically sit*.
 
-| Level | Name | Typical Systems |
-|-------|------|-----------------|
-| Level 0 | Physical Process | Sensors, actuators |
-| Level 1 | Control | PLC, DCS, RTU |
-| Level 2 | Supervisory | SCADA, HMI |
-| Level 3 | Operations | MES, historian |
-| DMZ | Demilitarized Zone | Data exchange, firewalls |
-| Level 4 | Enterprise | ERP, BI systems |
+When engineers insist that Purdue compliance requires separate physical data centers — one for IT, one for OT — they are conflating the logical model with a specific historical implementation of it. In the 1990s and 2000s, physical separation was the most practical way to enforce zone isolation. Air gaps and firewalls between buildings were the tools available.
 
-The essence of the model is: **adjacent layers may communicate, but only through controlled unidirectional or bidirectional interfaces; direct cross-layer access is prohibited.**
-
-Physically separating into different data centers is one way to achieve this goal — but it's not the only way.
+Public cloud gives you different tools — in many ways, better ones.
 
 ---
 
-## 2. How Public Cloud Capabilities Map to Purdue Layers
+## The Traditional Implementation's Hidden Weaknesses
 
-A public cloud is far more than "renting a server." The networking and access control capabilities it provides are precise enough to map to every layer boundary in the Purdue Model:
+Before arguing that cloud can implement Purdue, it is worth being honest about how poorly many on-premises implementations actually achieve it.
 
-**Virtual Private Cloud (VPC) and Subnet Isolation**
+**Physical separation does not equal logical isolation.** Separate server rooms connected by a misconfigured firewall rule are not meaningfully isolated. A VPN tunnel from a vendor's laptop to the "OT network" punches through every physical boundary you built. The Colonial Pipeline attack in 2021 compromised an IT billing system and reached OT through exactly this kind of implicit trust across supposedly separate networks.
 
-Level 3 systems like MES and historian databases, and Level 4 ERP systems, can be deployed in separate VPCs or subnets. Subnets are isolated by default — data flows only when routing rules are explicitly configured. This is exactly the same logic as using VLANs to segment a physical data center.
+**Maintenance access creates permanent holes.** Remote access for vendors and engineers is a necessity in any industrial operation. In traditional implementations, this access is often managed with shared credentials, persistent VPN connections, and minimal logging — because the physical security model never anticipated it properly.
 
-**Two-Tier Policy: Security Groups and Network ACLs**
+**Visibility is fragmentary.** Traditional OT networks are notoriously opaque. Traffic between Levels 1 and 2 often traverses unmanaged switches with no logging. Security teams cannot see what they cannot monitor.
 
-Security Groups are stateful firewalls at the instance level; Network ACLs are stateless rules at the subnet level. Combined, they give you precise control over "who can connect to whom, using what protocol, on which port" — which maps directly to the inter-layer access policies in the Purdue Model.
-
-**Cloud-Native DMZ Implementation**
-
-A traditional DMZ is a physically isolated network segment running data diodes or unidirectional gateways. In public cloud, you can build an equivalent DMZ layer using a dedicated subnet + reverse proxy + WAF + traffic mirroring — with even better observability, enabling deep packet inspection and full log retention for every flow crossing the DMZ.
-
-**Private Connectivity (PrivateLink / Dedicated Lines)**
-
-Sending Level 2 SCADA data up to Level 3 in the cloud doesn't require traversing the public internet. Through a cloud provider's dedicated line (e.g., AWS Direct Connect, Azure ExpressRoute, Huawei Cloud dedicated access) or private connectivity services, the link from the plant floor to the cloud can be physically or logically isolated — satisfying the requirement that OT networks not be exposed to the internet.
-
-**IAM and Zero Trust Access Control**
-
-Cloud IAM (Identity and Access Management) enables far more granular control than traditional firewall rules: not just "can this IP connect," but "which service account, at what time, from which source IP, calling which API, operating which piece of data" — full least-privilege principle in practice.
+Physical separation gave the *appearance* of Purdue compliance while leaving fundamental logical isolation problems unaddressed.
 
 ---
 
-## 3. A Typical Reference Architecture
+## How Public Cloud Implements Purdue — Layer by Layer
 
-Using manufacturing AMI (Advanced Metering Infrastructure) or smart grid as an example, a typical deployment architecture looks like this:
+Let's walk through each Purdue level and show how public cloud infrastructure maps onto it.
 
-```
-[ Field Layer Level 0-2 ]
-  PLC / RTU / Smart Meters
-       ↓（Industrial protocols: MQTT/Modbus/IEC 60870）
-[ Edge Gateway (on-premises) Level 3 boundary ]
-  Data collection, protocol conversion, local buffering
-       ↓（Encrypted private link / SD-WAN / PrivateLink）
-[ Cloud DMZ Subnet ]
-  Message queue, data gateway (no business logic)
-       ↓（Internal routing, strict ACL）
-[ Cloud Level 3 Subnet ]
-  Time-series database (TimescaleDB / InfluxDB)
-  Device management platform / alerting engine
-       ↓（Application-layer API, read-only interface）
-[ Cloud Level 4 Subnet ]
-  ERP integration / BI dashboards / external API gateway
-```
+### Level 0–1: Field Devices and Controllers (Stay On-Premises)
 
-Each vertical boundary is a controlled enforcement point:
-- Edge gateway to cloud travels over a dedicated line, bypassing the public internet
-- The DMZ subnet handles only protocol conversion and message relay — it holds no business data
-- Between Level 3 and Level 4, only read-only APIs are exposed — no shared databases
-- Network access rules for every layer are managed as code (IaC): auditable and rollback-capable
+Nothing in the Purdue Model requires Level 0 (sensors, actuators) or Level 1 (PLCs, RTUs) to move to the cloud — and they should not. These devices are physically embedded in the plant or grid infrastructure. The Purdue boundary here is the same as always: Level 1 to Level 2 communication is tightly controlled.
 
----
+What changes is that the **demarcation point** — the data diode, protocol gateway, or historian — can now push data upward into a cloud-hosted Level 2/3 zone rather than an on-premises one.
 
-## 4. The Real Challenges to Watch Out For
+### Level 2: Supervisory Control (Cloud-Hosted, Air-Gapped VPC)
 
-Moving to cloud doesn't automatically mean compliance. A few areas deserve serious attention:
+In a public cloud implementation, Level 2 lives in a **dedicated, isolated Virtual Private Cloud (VPC)** with:
 
-**1. Don't skip edge-side security**
+- No inbound internet routes
+- Outbound-only data flows to Level 3 (enforced by security group rules, not firewall appliances)
+- All traffic logged to an immutable audit store
+- No peering with the enterprise IT VPC
 
-No matter how well you secure the cloud side, if the edge gateway itself has vulnerabilities, attackers can move laterally into Level 2 or even Level 1. The Purdue Model demands more than just "securing the path data takes to the cloud" — it also requires hardening field-side devices and applying network micro-segmentation. Cloud cannot substitute for this work.
+This is logically equivalent to a physically isolated Level 2 network — and in practice, it is *more* reliably isolated, because cloud security groups are software-defined policy that cannot be bypassed by plugging a cable into the wrong switch.
 
-**2. Understand the shared responsibility model**
+### Level 3: Operations / Historian (Cloud-Hosted, Controlled DMZ)
 
-The cloud provider's responsibility boundary stops at the infrastructure layer. Your subnet configurations, security group rules, and IAM policies — those are your responsibility. When auditors come, they're looking at your configuration, not the cloud vendor's compliance certificates.
+Level 3 — the operations network, data historians, manufacturing execution systems — maps to a **separate VPC** with explicit, whitelisted peering rules to Level 2 (inbound data only) and Level 4 (outbound reports only).
 
-**3. Centralize logs and observability**
+This is precisely the DMZ logic the Purdue Model specifies. The cloud implementation enforces it through:
 
-Traditional OT environments often keep logs locally — or have no logging at all. Once you move to cloud, you need to aggregate cloud-side VPC flow logs, API call logs, and security group change logs together with field-side device logs into a unified SIEM platform. Without this, cross-layer attack paths are impossible to trace.
+- VPC peering with explicit allow-lists
+- AWS PrivateLink / Azure Private Endpoint (no data traverses public internet even between cloud zones)
+- IAM role-based access: no human has standing access to Level 3; access is granted via just-in-time (JIT) elevation with full audit trail
 
-**4. Map compliance standards clause by clause**
+### Level 4/5: Enterprise IT and Business Network
 
-IEC 62443, NERC CIP, and GB/T 36323 were written before public cloud was widespread. Some clauses assume physical partitioning. Any cloud migration plan needs a gap analysis that explicitly documents what cloud-native mechanisms are being used as equivalent substitutes for traditional physical isolation. This is the core material for regulatory conversations.
+Standard enterprise cloud: ERP, analytics, dashboards. Connected to Level 3 via one-way data replication (Kafka, event streaming) — Level 4 can read historian data; it cannot send commands downward.
+
+This unidirectional data flow — the most critical Purdue principle — is *easier* to enforce in cloud infrastructure than in traditional networks, because it is implemented as an event stream architecture, not a firewall rule that someone can accidentally modify.
 
 ---
 
-## 5. Conclusion: Security Perimeters Were Never Physical
+## What Cloud Adds That Traditional Data Centers Cannot
 
-The Purdue Model never specified that "Level 3 must run on a server in your own data center." What it specifies is the **data flow direction and access control policy** between layers.
+The Purdue Model was designed to be implemented with the tools of its era. Public cloud provides capabilities that make implementation more rigorous, not less:
 
-Public cloud provides stronger tools to implement those policies — finer permission granularity, more complete audit logs, faster policy change response, and compliance evidence that's easier to quantify and verify.
+**Software-defined network policy.** Security group rules and network ACLs are version-controlled, peer-reviewed, and auditable. No one can plug a cable into the wrong VLAN. Every change is logged, attributable, and reversible.
 
-Moving to public cloud isn't a way around the Purdue Model. It's an upgrade — from a network topology diagram to a security policy framework that can be codified, versioned, and automatically validated.
+**Immutable logging.** CloudTrail, Azure Monitor, and equivalent services provide tamper-proof audit logs of every API call, every network connection, every access attempt — across all Purdue levels simultaneously. Traditional OT networks rarely have equivalent visibility.
 
-Not a compromise. An evolution.
+**Zero-trust access to maintenance pathways.** Remote vendor access — the Achilles heel of traditional Purdue implementations — can be enforced through cloud-native zero-trust frameworks: identity-verified, session-recorded, time-limited, with no persistent credentials. This is structurally more secure than a shared VPN password to the "OT VLAN."
+
+**Automated compliance posture.** AWS Security Hub, Azure Defender for IoT, and equivalent tools continuously verify that zone isolation is maintained, flag drift, and generate audit evidence. Compliance is not a point-in-time assessment; it is a continuous state.
+
+**Physical redundancy without physical complexity.** Multi-AZ deployments provide the hardware redundancy that critical OT systems require, without building and maintaining multiple data centers.
 
 ---
 
-*This article is written for security architects, OT network engineers, and compliance teams evaluating the feasibility of moving industrial control systems to cloud. If you're working on a specific architecture design or an IEC 62443 gap analysis, feel free to leave a comment.*
+## The Real Question Is Not "Cloud or Not?" — It's "Which Threat Model?"
+
+The argument against cloud-hosted OT environments is usually framed as: "What if the cloud provider is breached?"
+
+This is a legitimate question. It is also worth asking the parallel question: "What if the on-premises data center is breached?" — because that happens too, more often and with less detection capability.
+
+The Purdue Model was never about making a system impenetrable. It was about **containing blast radius**: if one zone is compromised, the attacker cannot move laterally to adjacent zones. That principle applies identically on public cloud. An attacker who compromises the enterprise IT VPC (Level 4/5) cannot reach the OT VPC (Level 2/3) if the zone isolation is correctly implemented — regardless of whether both VPCs run on the same cloud provider's hardware.
+
+The relevant question is not the physical location of the infrastructure. It is whether the logical boundaries are correctly defined, correctly implemented, and continuously verified. Public cloud infrastructure makes all three of those tasks more tractable, not less.
+
+---
+
+## A Note for Regulated Industries
+
+Industries operating under IEC 62443, NERC CIP, or equivalent standards sometimes interpret compliance as requiring physical separation of OT and IT environments. Regulators and auditors are increasingly recognizing that logical separation — properly documented, continuously monitored, and independently verified — satisfies the intent of these frameworks.
+
+The key is documentation: a clear mapping of Purdue levels to cloud infrastructure components, explicit data flow diagrams, and audit evidence from the cloud platform's logging and monitoring systems. Compliance is an argument you make to an auditor, and cloud infrastructure provides more evidence to make that argument with than most traditional OT environments ever could.
+
+---
+
+## Conclusion
+
+The Purdue Model is not a blueprint for building separate data centers. It is a framework for defining security zones and controlling data flows between them.
+
+Public cloud does not violate that framework. Implemented correctly, it enforces it more rigorously — with software-defined policy that cannot be bypassed by a mis-patched cable, with immutable logging that provides continuous audit evidence, and with zero-trust access controls that address the maintenance pathway vulnerabilities that have always been the practical weak point of traditional Purdue implementations.
+
+The question for industrial operators moving to public cloud is not "Can we maintain Purdue compliance?" The answer to that is yes. The question is "Are we implementing the logical isolation correctly?" — and that question applies equally to on-premises infrastructure.
+
+The Purdue Model belongs in the cloud. That is not a compromise. It is where the model was always heading.
