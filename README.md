@@ -10,9 +10,11 @@ site — responsive HTML, RSS, per-section print views, per-page Markdown, and
 `llms.txt` / `navigation.json` indexes for AI agents. No Node.js, npm, PostCSS,
 or bundler is involved.
 
-- Published site: <https://seagaruda.github.io/TechBlogs/>
-- Chinese edition: <https://seagaruda.github.io/TechBlogs/zh/>
-- Agent index: <https://seagaruda.github.io/TechBlogs/llms.txt>
+- Published site: <https://seagaruda.github.io/TechBlogs/> (mirror)
+- Primary site (Cloudflare Pages): <https://techblogs.pages.dev/> once the
+  one-time setup below is done
+- Chinese edition: `/zh/` on either host
+- Agent index: `/llms.txt`, `/navigation.json`, `/blog/llms-full.txt`
 - This repository also feeds `posts.json` to the Vercel blog index
   (see [posts.json pipeline](#postsjson-pipeline)).
 
@@ -106,13 +108,40 @@ Rules that keep the site consistent:
 
 ## Publishing
 
+### GitHub Pages (mirror, already live)
+
 `.github/workflows/deploy-pages.yaml` builds with the pinned toolchain on every
 push to `main` and publishes to GitHub Pages (Settings → Pages → Source:
 **GitHub Actions**). `baseURL` is derived from the Pages URL at build time, so
 the project subpath stays correct.
 
-To publish under a custom domain, point the domain at Pages and change
-`baseURL` in `hugo.yaml` to the canonical address.
+### Cloudflare Pages (primary)
+
+`.github/workflows/cloudflare-pages.yaml` runs the same production build and
+uploads it with **Direct Upload** (`wrangler pages deploy`). Direct Upload is
+used on purpose: Cloudflare's own build image is not guaranteed to carry Hugo
+Extended *and* Go, which the OINK Hugo Module needs.
+
+One-time setup — Settings → Secrets and variables → Actions:
+
+| Kind | Name | Value |
+| --- | --- | --- |
+| secret | `CLOUDFLARE_API_TOKEN` | API token with **Account → Cloudflare Pages → Edit** |
+| secret | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → Account ID |
+| variable | `CLOUDFLARE_PAGES_ENABLED` | `true` (gates pushes; leave unset to skip) |
+| variable | `CLOUDFLARE_PROJECT_NAME` | optional, default `techblogs` |
+| variable | `CLOUDFLARE_SITE_URL` | optional, e.g. `https://blog.example.com/` for a custom domain |
+
+Until `CLOUDFLARE_PAGES_ENABLED=true` is set, pushes skip the Cloudflare job
+and only the GitHub Pages mirror is updated. A manual **Run workflow** also
+deploys once the two secrets exist.
+
+Custom domain: add it to the Pages project in Cloudflare, then set
+`CLOUDFLARE_SITE_URL` to that address so canonical URLs, RSS, and
+`llms.txt` point at it.
+
+Both hosts serve the same content; only the absolute URLs inside RSS,
+`llms.txt`, and the sitemap differ, because `baseURL` is passed per deploy.
 
 ## posts.json pipeline
 
