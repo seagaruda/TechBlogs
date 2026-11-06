@@ -70,8 +70,8 @@ jobs:
           CONFIGURED_SITE_URL: ${{ vars.CLOUDFLARE_SITE_URL }}
         run: |
           # Cloudflare project names are lowercase; the repository is TechBlogs.
-          CF_PROJECT_NAME="${CONFIGURED_PROJECT_NAME:-techblogs}"
-          CF_SITE_URL="${CONFIGURED_SITE_URL:-https://${CF_PROJECT_NAME}.pages.dev/}"
+          CF_PROJECT_NAME="${CONFIGURED_PROJECT_NAME:-seagaruda-blog}"
+          CF_SITE_URL="${CONFIGURED_SITE_URL:-https://blog.seagaruda.com/}"
           echo "CF_PROJECT_NAME=${CF_PROJECT_NAME}" >> "${GITHUB_ENV}"
           echo "CF_SITE_URL=${CF_SITE_URL}" >> "${GITHUB_ENV}"
 

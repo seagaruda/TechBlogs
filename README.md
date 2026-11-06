@@ -10,10 +10,11 @@ site — responsive HTML, RSS, per-section print views, per-page Markdown, and
 `llms.txt` / `navigation.json` indexes for AI agents. No Node.js, npm, PostCSS,
 or bundler is involved.
 
-- Published site: <https://seagaruda.github.io/TechBlogs/> (mirror)
-- Primary site (Cloudflare Pages): <https://techblogs.pages.dev/> once the
-  one-time setup below is done
-- Chinese edition: `/zh/` on either host
+- Primary site (Cloudflare Pages): <https://blog.seagaruda.com/>
+  (project `seagaruda-blog`, also reachable at
+  <https://seagaruda-blog.pages.dev/>)
+- Mirror (GitHub Pages): <https://seagaruda.github.io/TechBlogs/>
+- Chinese edition: `/zh/` on any host
 - Agent index: `/llms.txt`, `/navigation.json`, `/blog/llms-full.txt`
 - This repository also feeds `posts.json` to the Vercel blog index
   (see [posts.json pipeline](#postsjson-pipeline)).
@@ -115,7 +116,10 @@ push to `main` and publishes to GitHub Pages (Settings → Pages → Source:
 **GitHub Actions**). `baseURL` is derived from the Pages URL at build time, so
 the project subpath stays correct.
 
-### Cloudflare Pages (primary)
+### Cloudflare Pages (primary — live)
+
+Live project: **`seagaruda-blog`** → <https://seagaruda-blog.pages.dev/>,
+served at the custom domain **<https://blog.seagaruda.com/>**.
 
 `.github/workflows/cloudflare-pages.yaml` runs the same production build and
 uploads it with **Direct Upload** (`wrangler pages deploy`). Direct Upload is
@@ -127,18 +131,34 @@ One-time setup — Settings → Secrets and variables → Actions:
 | Kind | Name | Value |
 | --- | --- | --- |
 | secret | `CLOUDFLARE_API_TOKEN` | API token with **Account → Cloudflare Pages → Edit** |
-| secret | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → Account ID |
+| secret | `CLOUDFLARE_ACCOUNT_ID` | `3b9eee490d2e9e20a8378a85677d8774` |
 | variable | `CLOUDFLARE_PAGES_ENABLED` | `true` (gates pushes; leave unset to skip) |
-| variable | `CLOUDFLARE_PROJECT_NAME` | optional, default `techblogs` |
-| variable | `CLOUDFLARE_SITE_URL` | optional, e.g. `https://blog.example.com/` for a custom domain |
+| variable | `CLOUDFLARE_PROJECT_NAME` | optional, default `seagaruda-blog` |
+| variable | `CLOUDFLARE_SITE_URL` | optional, default `https://blog.seagaruda.com/` |
 
 Until `CLOUDFLARE_PAGES_ENABLED=true` is set, pushes skip the Cloudflare job
 and only the GitHub Pages mirror is updated. A manual **Run workflow** also
 deploys once the two secrets exist.
 
-Custom domain: add it to the Pages project in Cloudflare, then set
-`CLOUDFLARE_SITE_URL` to that address so canonical URLs, RSS, and
-`llms.txt` point at it.
+#### Custom domain
+
+`blog.seagaruda.com` is attached to the Pages project. Because wrangler's OAuth
+login has no DNS scope, the record is created by hand once:
+
+| Type | Name | Content | Proxy |
+| --- | --- | --- | --- |
+| CNAME | `blog` | `seagaruda-blog.pages.dev` | Proxied (orange cloud) |
+
+Without that record the domain stays in `pending` and the certificate is never
+issued — a `pending` Pages domain plus a missing CNAME is the usual cause.
+
+#### Manual deploy (no Actions quota, uses local wrangler)
+
+```bash
+hugo --cleanDestinationDir --gc --minify --environment production \
+  --baseURL "https://blog.seagaruda.com/"
+wrangler pages deploy public --project-name seagaruda-blog --branch main
+```
 
 Both hosts serve the same content; only the absolute URLs inside RSS,
 `llms.txt`, and the sitemap differ, because `baseURL` is passed per deploy.
