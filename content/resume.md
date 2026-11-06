@@ -1,3 +1,18 @@
+---
+title: Herbert Zhang
+description: Cloud solutions architect and ecosystem builder — 18 years in ICT, cloud architecture, ISV partnerships.
+date: 2026-11-06
+type: page
+menu:
+  main:
+    identifier: resume
+    name: Resume
+    weight: 20
+---
+
+<!-- 注意：上面的 front matter 不能删。缺了它，<title>/description 会退化，
+     导航里的 Resume 入口也会消失（2026-11-06 已踩过一次）。 -->
+
 # Herbert Zhang
 
 **Cloud Solutions Architect | Ecosystem Builder**
