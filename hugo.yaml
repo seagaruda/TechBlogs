@@ -1,0 +1,81 @@
+# SeaGaruda Tech Blog — site configuration (OINK / Hugo Extended)
+#
+# Content lives in content/blog/post/. English files end in `.md`, their
+# Chinese peers in `.zh.md` and sit side by side.
+#
+# Local preview:  hugo server
+# Production build: hugo --cleanDestinationDir --gc --minify \
+#                   --environment production --printPathWarnings
+
+title: &siteTitle SeaGaruda Tech Blog
+baseURL: https://seagaruda.github.io/TechBlogs/
+defaultContentLanguage: en
+enableGitInfo: true
+enableRobotsTXT: true
+enableEmoji: true
+timeZone: Asia/Shanghai
+
+languages:
+  en:
+    label: English
+    locale: en-US
+    weight: 1
+    title: *siteTitle
+    params:
+      description: Field notes on cloud architecture, database migration, and industrial digitalization — by SeaGaruda.
+  zh:
+    label: 简体中文
+    locale: zh-CN
+    weight: 2
+    title: *siteTitle
+    hasCJKLanguage: true
+    params:
+      description: 云架构、数据库迁移与工业数字化的实践笔记 — SeaGaruda。
+
+# OINK's native Markdown components depend on these three Goldmark settings.
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+    parser:
+      attribute:
+        block: true
+      wrapStandAloneImageWithinParagraph: false
+  highlight:
+    noClasses: false
+
+# LLMS / NAVJSON give agents a clean, machine-readable view of the whole blog.
+outputs:
+  home: [HTML, RSS, markdown, LLMS, NAVJSON]
+  page: [HTML, markdown]
+  section: [HTML, RSS, print, markdown]
+
+params:
+  offline_search: true
+  copyright:
+    authors: SeaGaruda
+    from_year: 2025
+  ui:
+    compare: true
+    preset: paper
+    preset_menu: [paper, slate]
+    dark_mode: true
+    section_index: cards
+    blog_index: cards
+    blog_index_columns: 3
+    reading_time: true
+    backlinks: true
+    sidebar_menu_foldable: true
+    sidebar_icon_policy: groups
+    share: [x, linkedin, weibo, copy]
+  github_repo: https://github.com/seagaruda/TechBlogs
+  github_branch: main
+  logo: logo.png
+  time_format_blog: 2006-01-02
+
+module:
+  imports:
+    - path: github.com/pgsty/oink
+  hugoVersion:
+    extended: true
+    min: 0.168.0

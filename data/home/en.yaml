@@ -1,0 +1,45 @@
+sections: [hero, cards, cta]
+
+hero:
+  align: center
+  eyebrow: SeaGaruda · engineering notes
+  title_lines:
+    - words: [{ text: Cloud architecture, }]
+    - words: [{ text: written from the field. }]
+  lead: Long-form notes on public-cloud migration, database engineering, OT/IT security, and why most digitalization programmes stall.
+  actions:
+    - { label: Read the articles, url: blog/, icon: fa-solid fa-pen-nib, style: primary }
+    - { label: About this blog, url: about/, icon: fa-solid fa-circle-info, style: ghost }
+
+cards:
+  eyebrow: Browse by topic
+  title: Five threads, twenty years of delivery
+  columns: 3
+  items:
+    - title: Cloud Migration
+      desc: Lift-and-shift is not a migration strategy. What actually has to change in SQL, storage, and operations.
+      icon: fa-solid fa-cloud-arrow-up
+      url: categories/cloud-migration/
+    - title: Cloud Architecture
+      desc: Load balancing before microservices, monolith to distributed, DR networking as code.
+      icon: fa-solid fa-sitemap
+      url: categories/cloud-architecture/
+    - title: Cloud Database
+      desc: Managed RDS in practice, TimescaleDB instead of Oracle, and the parameters that bite.
+      icon: fa-solid fa-database
+      url: categories/cloud-database/
+    - title: OT Security
+      desc: The Purdue Model on public cloud — a logical model, not a physical one.
+      icon: fa-solid fa-shield-halved
+      url: categories/ot-security/
+    - title: Digital Transformation
+      desc: Why ERP, OA and CRM deployments fail when informatization was never finished.
+      icon: fa-solid fa-arrows-spin
+      url: categories/digital-transformation/
+
+cta:
+  title: Everything here is Markdown.
+  text: The whole blog — posts, taxonomy, RSS, print views, and agent-readable llms.txt — is built from this repository with Hugo and the OINK theme.
+  label: Browse the repository
+  url: https://github.com/seagaruda/TechBlogs
+  style: primary

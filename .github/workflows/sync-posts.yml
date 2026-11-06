@@ -4,8 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "**.md"
-      - "!README.md"
+      - "content/blog/post/**.md"
   workflow_dispatch:
 
 jobs:
@@ -20,78 +19,89 @@ jobs:
       - name: Generate posts.json
         run: |
           python3 - <<'PYEOF'
-          import os, json, re
-          from datetime import datetime
+          import json, os, re
+          from datetime import datetime, timezone
+
+          SITE = "https://seagaruda.github.io/TechBlogs"
+          REPO = "seagaruda/TechBlogs"
+          BRANCH = "main"
+          SRC = "techblogs/content/blog/post"
+
+          def parse(path):
+              """Return (front matter dict, body) for a Hugo Markdown file."""
+              raw = open(path, encoding="utf-8").read()
+              m = re.match(r"^---\s*\n(.*?)\n---\s*\n", raw, re.DOTALL)
+              if not m:
+                  return {}, raw
+              fm, body = {}, raw[m.end():]
+              for line in m.group(1).splitlines():
+                  kv = re.match(r"^(\w+):\s*(.*)$", line)
+                  if not kv:
+                      continue
+                  key, val = kv.group(1), kv.group(2).strip()
+                  arr = re.match(r"^\[(.*)\]$", val)
+                  if arr:
+                      fm[key] = [t.strip().strip('"').strip("'")
+                                 for t in arr.group(1).split(",") if t.strip()]
+                  else:
+                      fm[key] = val.strip('"').strip("'")
+              return fm, body
+
+          def first_paragraph(body):
+              for block in re.split(r"\n{2,}", body):
+                  block = block.strip()
+                  if not block or block[0] in "#>-|`" or block.startswith("!["):
+                      continue
+                  text = re.sub(r"[*_`\[\]]", "", block.replace("\n", " "))
+                  return text[:200]
+              return ""
 
           posts = []
+          for root, _dirs, files in os.walk(SRC):
+              for fname in sorted(files):
+                  if not fname.endswith(".md") or fname.startswith("_index"):
+                      continue
+                  path = os.path.join(root, fname)
+                  fm, body = parse(path)
+                  rel = os.path.relpath(path, "techblogs").replace(os.sep, "/")
 
-          for fname in sorted(os.listdir("techblogs")):
-              if not fname.endswith(".md") or fname.upper() == "README.MD":
-                  continue
+                  lang = "zh" if fname.endswith(".zh.md") else "en"
+                  stem = fname[:-6] if lang == "zh" else fname[:-3]
+                  slug = fm.get("slug") or stem
 
-              with open(f"techblogs/{fname}", encoding="utf-8") as f:
-                  content = f.read()
+                  date = str(fm.get("date", ""))
+                  dm = re.match(r"(\d{4}-\d{2}-\d{2})", date)
+                  date = dm.group(1) if dm else datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-              # Parse YAML frontmatter
-              fm = {}
-              body = content
-              fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
-              if fm_match:
-                  raw_fm = fm_match.group(1)
-                  body = content[fm_match.end():]
-                  for line in raw_fm.splitlines():
-                      kv = re.match(r'^(\w+)\s*:\s*"?([^"\n]+)"?\s*$', line)
-                      if kv:
-                          fm[kv.group(1)] = kv.group(2).strip()
-                      # Parse tags array: tags: ["A", "B"]
-                      tags_match = re.match(r'^tags\s*:\s*\[(.+)\]', line)
-                      if tags_match:
-                          raw_tags = tags_match.group(1)
-                          fm["tags"] = [t.strip().strip('"').strip("'") for t in raw_tags.split(",")]
+                  post = {
+                      "title": fm.get("title") or stem,
+                      "date": date,
+                      "summary": fm.get("description") or first_paragraph(body),
+                      "slug": slug,
+                      "lang": lang,
+                      "author": fm.get("author") or "SeaGaruda",
+                      "categories": fm.get("categories") or [],
+                      "tags": fm.get("tags") or [],
+                      "url": f"{SITE}/blog/post/{slug}/" if lang == "en"
+                             else f"{SITE}/zh/blog/post/{slug}/",
+                      "raw_url": f"https://raw.githubusercontent.com/{REPO}/{BRANCH}/{rel}",
+                      "github_url": f"https://github.com/{REPO}/blob/{BRANCH}/{rel}",
+                      "filename": rel,
+                  }
+                  posts.append(post)
 
-              # Fallback: extract title from first H1
-              if "title" not in fm:
-                  h1 = re.search(r'^#\s+(.+)$', body, re.MULTILINE)
-                  fm["title"] = h1.group(1).strip() if h1 else fname.replace(".md", "")
-
-              # Fallback: extract summary from first non-heading paragraph
-              if "summary" not in fm:
-                  paras = [p.strip() for p in re.split(r'\n{2,}', body)
-                           if p.strip() and not p.strip().startswith('#')
-                           and not p.strip().startswith('```')]
-                  fm["summary"] = paras[0][:200] if paras else ""
-
-              # Fallback: slug from filename
-              if "slug" not in fm:
-                  fm["slug"] = fname.replace(".md", "").lower().replace("_", "-")
-
-              # Fallback: date from git or today
-              if "date" not in fm:
-                  fm["date"] = datetime.utcnow().strftime("%Y-%m-%d")
-
-              # GitHub raw URL for the article
-              repo = "seagaruda/TechBlogs"
-              branch = "main"
-              fm["url"] = f"https://github.com/{repo}/blob/{branch}/{fname}"
-              fm["raw_url"] = f"https://raw.githubusercontent.com/{repo}/{branch}/{fname}"
-              fm["filename"] = fname
-
-              posts.append(fm)
-
-          # Sort by date descending
-          posts.sort(key=lambda p: p.get("date", ""), reverse=True)
+          posts.sort(key=lambda p: (p["date"], p["slug"]), reverse=True)
 
           output = {
-              "generated_at": datetime.utcnow().isoformat() + "Z",
-              "posts": posts
+              "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "posts": posts,
           }
-
           with open("posts.json", "w", encoding="utf-8") as f:
               json.dump(output, f, ensure_ascii=False, indent=2)
 
           print(f"Generated posts.json with {len(posts)} posts")
           for p in posts:
-              print(f"  - [{p['date']}] {p['title']}")
+              print(f"  - [{p['date']}][{p['lang']}] {p['title']}")
           PYEOF
 
       - name: Checkout blog-index
@@ -105,8 +115,7 @@ jobs:
       - name: Copy posts.json to blog-index
         run: |
           cp posts.json blog-index/public/posts.json
-          echo "Copied posts.json:"
-          cat posts.json
+          head -30 posts.json
 
       - name: Commit and push to blog-index
         run: |

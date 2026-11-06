@@ -1,0 +1,37 @@
+sections: [hero, cards, cta]
+
+hero:
+  align: center
+  eyebrow: SeaGaruda · 实践笔记
+  title_lines:
+    - words: [{ text: 云架构这件事， }]
+    - words: [{ text: 从交付现场写起。 }]
+  lead: 公有云迁移、数据库工程、OT/IT 安全边界，以及企业数字化为什么总是停在半路。
+  actions:
+    - { label: 读文章, url: /zh/blog/, icon: fa-solid fa-pen-nib, style: primary }
+    - { label: 关于这个博客, url: /zh/about/, icon: fa-solid fa-circle-info, style: ghost }
+
+cards:
+  eyebrow: 从哪开始
+  title: 中文文章与英文合集
+  columns: 3
+  items:
+    - title: 云数据库
+      desc: 托管 RDS 的实战细节：安全组、字符集时区、参数调优，以及最容易踩的坑。
+      icon: fa-solid fa-database
+      url: /zh/categories/云数据库/
+    - title: 全部中文文章
+      desc: 按发布时间倒序排列的中文篇目。
+      icon: fa-solid fa-file-lines
+      url: /zh/blog/post/
+    - title: English archive
+      desc: 大部分文章以英文写成，按云迁移、云架构、云数据库、OT 安全、数字化转型五类归档。
+      icon: fa-solid fa-book-open
+      url: /blog/
+
+cta:
+  title: 这里全部是 Markdown。
+  text: 文章、分类、RSS、打印视图，以及给 AI 读的 llms.txt，都由这个仓库用 Hugo 与 OINK 主题构建。
+  label: 浏览仓库
+  url: https://github.com/seagaruda/TechBlogs
+  style: primary
