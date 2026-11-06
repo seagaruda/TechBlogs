@@ -52,14 +52,14 @@
 *Dec 2011 - Jul 2016*
 
 - Delivered Kuala Lumpur Rail Transit, Venezuela Smart Park, Ethiopia E-Government projects
-- Technical architecture and cross-border project management
+- Technical architecture and International project management
 
 ---
 
 ### Early Career
 
 **Digital China** | Video Channel Sales *(2009 - 2011)*  
-**CreateView** | Project Delivery Manager *(2006 - 2009)*
+**VTRON Tech** | Project Delivery Manager *(2006 - 2009)*
 
 ---
 
