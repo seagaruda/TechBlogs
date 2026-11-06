@@ -1,3 +1,14 @@
+---
+title: Herbert Zhang (张海鹏)
+description: Full-stack tech professional — cloud solutions, partner ecosystem, 18 years in ICT.
+date: 2026-11-06
+type: page
+menu:
+  main:
+    identifier: resume
+    weight: 20
+---
+
 # Herbert Zhang (张海鹏)
 
 **Full-Stack Tech Professional | Cloud Solutions & Ecosystem Expert**
