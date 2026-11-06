@@ -52,7 +52,7 @@
 *Dec 2011 - Jul 2016*
 
 - Delivered Kuala Lumpur Rail Transit, Venezuela Smart Park, Ethiopia E-Government projects
-- Technical architecture and International project management
+- Technical architecture and international project management
 
 ---
 
