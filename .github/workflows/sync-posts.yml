@@ -22,7 +22,7 @@ jobs:
           import json, os, re
           from datetime import datetime, timezone
 
-          SITE = "https://seagaruda.github.io/TechBlogs"
+          SITE = "https://blog.seagaruda.com"
           REPO = "seagaruda/TechBlogs"
           BRANCH = "main"
           SRC = "techblogs/content/blog/post"
