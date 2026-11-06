@@ -2,7 +2,7 @@
 
 **Cloud Solutions Architect | Ecosystem Builder**
 
-📧 [Email Me](mailto:contact@seagaruda.com) | 📍 Shenzhen, China  
+📧 [Email Me](mailto:herbert@seagaruda.com) | 📍 Shenzhen, China  
 🔗 [LinkedIn](https://www.linkedin.com/in/herbert-zhang-42789095/) | 🌐 [Blog](https://www.seagaruda.com)
 
 ---
