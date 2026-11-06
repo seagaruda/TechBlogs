@@ -6,6 +6,7 @@ type: page
 menu:
   main:
     identifier: resume
+    name: Resume
     weight: 20
 ---
 
