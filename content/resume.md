@@ -73,8 +73,8 @@ menu:
 
 ### Early Career
 
-**Digital China** | Video Conferencing Solutions *(2009 - 2011)*  
-**VTRON Tech** | Project Delivery Manager *(2006 - 2009)*
+**Digital China** | Video Conferencing Solutions *(2010 - 2011)*  
+**VTRON Tech** | Project Delivery Manager *(2006 - 2010)*
 
 ---
 
